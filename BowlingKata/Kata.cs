@@ -69,7 +69,8 @@ public static class Kata
 
             if (roll.IsStrike && roll.Frame < 10)
             {
-                score += Score(node.Next) + Score(node.Next?.Next);
+                score += Score(node.Next);
+                score += Score(node.Next?.Next);
             }
             else if (roll.IsSpare && roll.Frame < 10)
             {
