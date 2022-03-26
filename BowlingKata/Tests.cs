@@ -1,5 +1,7 @@
 using FluentAssertions;
+using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using Xunit;
 
@@ -9,46 +11,96 @@ namespace BowlingKata
     {
         private class Roll
         {
-            public char Value { get; set; }
-            public int Frame { get; set; }
-            public int Index { get; set; }
+            public Roll() { }
+
+
+            public Roll(char value, int frame, int index)
+            {
+                Value = value;
+                Frame = frame;
+                Index = index;
+                Score = GetScore();
+            }
+
+            public char Value { get; }
+            public int Frame { get; }
+            public int Index { get; }
+
+            public int Score { get; }
 
             public bool IsStrike => Value == 'X';
 
             public bool IsSpare => Value == '/';
+
+            private int GetScore()
+            {
+
+                if (Value == 'X')
+                {
+                    return 10;
+                }
+                else if (Value == '/')
+                {
+                    return 0;
+                }
+
+                return Value - '0';
+            }
+        }
+
+        private class Rolls : Collection<Roll>
+        {
+            private Rolls() { }
+
+            public Rolls(string inputString)
+            {
+
+                var index = 0;
+
+                var frameStrings = inputString.Split(' ')
+                    .Select((f, i) => new { f, Frame = i + 1 });
+
+                foreach (var f in frameStrings)
+                {
+                    foreach (var r in f.f.ToCharArray())
+                    {
+                        this.Add(new Roll(r, f.Frame, index));
+                        index++;
+                    }
+                }
+            }
+
+            public Roll GetPriorRoll(int index) => GetNextRoll(index, inReverse: true);
+
+            public Roll GetNextRoll(int index, bool inReverse = false)
+            {
+                var toIterateOn = inReverse ? this.Reverse() : this;
+
+                var roll = toIterateOn.Where(x => inReverse ? (x.Index < index) : (x.Index > index))
+                    .FirstOrDefault();
+                return roll ?? new Roll();
+            }
         }
 
         public static int BowlingScore(string inputString)
         {
             var score = 0;
 
-            var frameStrings = inputString.Split(' ')
-                .Select((f, i) => new { f, Frame = i + 1 });
-
-            var index = 0;
-            var rolls = new List<Roll>();
-            foreach (var f in frameStrings)
-            {
-                foreach (var r in f.f.ToCharArray())
-                {
-                    rolls.Add(new Roll { Frame = f.Frame, Value = r, Index = index });
-                    index++;
-                }
-            }
+            var rolls = new Rolls(inputString);
 
             foreach (var roll in rolls)
             {
                 if (roll.IsStrike)
                 {
-                    score += ScoreIt(roll.Value);
+                    score += roll.Score;
 
                     if (roll.Frame < 10)
                     {
-                        var bonus1 = GetNextRoll(rolls, roll.Index);
-                        var bonus2 = GetNextRoll(rolls, roll.Index + 1);
+                        var bonus1 = rolls.GetNextRoll(roll.Index);
+                        var bonus2 = rolls.GetNextRoll(roll.Index + 1);
 
-                        var bonus1Score = ScoreIt(bonus1);
-                        var bonus2Score = bonus2 == '/' ? 10 - bonus1Score : ScoreIt(bonus2);
+                        var bonus1Score = bonus1.Score;
+                        var bonus2Score = bonus2.Value == '/' ? 10 - bonus1Score : bonus2.Score;
 
                         score += bonus1Score;
                         score += bonus2Score;
@@ -56,49 +108,28 @@ namespace BowlingKata
                 }
                 else if (roll.IsSpare)
                 {
-                    var prior = GetPriorRoll(rolls, roll.Index);
-                    var priorScore = ScoreIt(prior);
+                    var prior = rolls.GetPriorRoll(roll.Index);
+                    var priorScore = prior.Score;
 
                     score += 10 - priorScore;
 
                     if (roll.Frame < 10)
                     {
-                        var bonus1 = GetNextRoll(rolls, roll.Index);
-                        score += ScoreIt(bonus1);
+                        var bonus1 = rolls.GetNextRoll(roll.Index);
+                        score += bonus1.Score;
                     }
                 }
                 else
                 {
-                    score += ScoreIt(roll.Value);
+                    score += roll.Score;
                 }
             }
 
             return score;
         }
 
-        private static int ScoreIt(char c)
-        {
-            if (c == 'X')
-            {
-                return 10;
-            }
-            else if (c == '/')
-            {
-                return 0;
-            }
 
-            return c - '0';
-        }
-        private static char GetPriorRoll(IEnumerable<Roll> vs, int index) => GetNextRoll(vs, index, inReverse: true);
 
-        private static char GetNextRoll(IEnumerable<Roll> vs, int index, bool inReverse = false)
-        {
-            var toIterateOn = inReverse ? vs.Reverse() : vs;
-
-            var roll = toIterateOn.Where(x => inReverse ? (x.Index < index) : (x.Index > index))
-                .FirstOrDefault();
-            return roll != null ? roll.Value : default;
-        }
 
         public class Tests
         {
