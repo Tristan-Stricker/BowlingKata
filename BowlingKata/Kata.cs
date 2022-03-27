@@ -1,65 +1,37 @@
 namespace BowlingKata;
 
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 
 public static class Kata
 {
     private class Roll
     {
-        public Roll() { }
-
         public Roll(char value, int frame)
         {
             Value = value;
-            Frame = frame;
+            FrameNumber = frame;
         }
 
         public char Value { get; }
-        public int Frame { get; }
+
+        public int FrameNumber { get; }
 
         public bool IsStrike => Value == 'X';
 
         public bool IsSpare => Value == '/';
-    }
 
-    private class Rolls : ReadOnlyCollection<Roll>
-    {
-        public Rolls(IList<Roll> list) : base(list)
-        {
-        }
-
-        public static Rolls Create(string inputString)
-        {
-            var rollIndex = 0;
-
-            var frameStrings = inputString.Split(' ')
-                .Select((f, i) => new { f, Frame = i + 1 });
-
-            var list = new List<Roll>();
-
-            foreach (var f in frameStrings)
-            {
-                foreach (var r in f.f.ToCharArray())
-                {
-                    list.Add(new Roll(r, f.Frame));
-                    rollIndex++;
-                }
-            }
-
-            return new Rolls(list);
-        }
-
-        public LinkedList<Roll> AsLinkedList()
-        {
-            return new LinkedList<Roll>(this);
-        }
+        public bool IsInFinalFrame => FrameNumber == 10;
     }
 
     public static int BowlingScore(string inputString)
     {
-        var rolls = Rolls.Create(inputString).AsLinkedList();
+        var rollList = inputString.Split(' ')
+                .Select((frameString, i) => new { frameString, Frame = i + 1 })
+                .Select(r => r.frameString.Select(c => new Roll(c, r.Frame)))
+                .SelectMany(r => r); ;
+
+        var rolls = new LinkedList<Roll>(rollList);
         var score = 0;
 
         for (var node = rolls.First; node != null; node = node.Next)
@@ -67,12 +39,12 @@ public static class Kata
             var roll = node.Value;
             score += Score(node);
 
-            if (roll.IsStrike && roll.Frame < 10)
+            if (roll.IsStrike && !roll.IsInFinalFrame)
             {
                 score += Score(node.Next);
                 score += Score(node.Next?.Next);
             }
-            else if (roll.IsSpare && roll.Frame < 10)
+            else if (roll.IsSpare && !roll.IsInFinalFrame)
             {
                 score += Score(node.Next);
             }
@@ -83,11 +55,6 @@ public static class Kata
 
     private static int Score(LinkedListNode<Roll>? rollNode)
     {
-        if (rollNode == null)
-        {
-            return 0;
-        }
-
         var roll = rollNode.Value;
 
         if (roll.IsStrike)
